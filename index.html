@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Clasificador de Animales - Azure AI</title>
+
+  <style>
+
+    body { 
+
+      font-family: Arial, sans-serif; 
+
+      text-align: center; 
+
+      background-color: #f4f7f6; 
+
+      padding: 20px; 
+
+      margin: 0;
+
+    }
+
+    .container { 
+
+      max-width: 550px; 
+
+      margin: 0 auto; 
+
+      background: white; 
+
+      padding: 25px; 
+
+      border-radius: 10px; 
+
+      box-shadow: 0px 4px 12px rgba(0,0,0,0.1); 
+
+    }
+
+    h1 { 
+
+      color: #0056b3; 
+
+      font-size: 22px; 
+
+      margin-bottom: 8px; 
+
+    }
+
+    p { 
+
+      color: #555; 
+
+      font-size: 14px; 
+
+      margin-top: 0; 
+
+    }
+
+    #imageContainer { 
+
+      margin-top: 15px; 
+
+      width: 100%; 
+
+    }
+
+    #preview { 
+
+      max-width: 100%; 
+
+      max-height: 380px; 
+
+      border-radius: 6px; 
+
+      display: none; 
+
+      margin: 0 auto; 
+
+    }
+
+    button { 
+
+      background-color: #0056b3; 
+
+      color: white; 
+
+      border: none; 
+
+      padding: 10px 24px; 
+
+      font-size: 15px; 
+
+      font-weight: bold; 
+
+      border-radius: 5px; 
+
+      cursor: pointer; 
+
+      margin-top: 10px; 
+
+      transition: background 0.2s;
+
+    }
+
+    button:hover { 
+
+      background-color: #004085; 
+
+    }
+
+    #status { 
+
+      margin-top: 14px; 
+
+      font-weight: bold; 
+
+      font-size: 14px; 
+
+      color: #444; 
+
+    }
+
+    .results-card {
+
+      margin-top: 18px;
+
+      text-align: left;
+
+      background: #fafafa;
+
+      border: 1px solid #e0e0e0;
+
+      border-radius: 6px;
+
+      padding: 12px 16px;
+
+      display: none;
+
+    }
+
+    .results-card h3 {
+
+      margin: 0 0 10px 0;
+
+      font-size: 15px;
+
+      color: #333;
+
+    }
+
+    .pred-item {
+
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: center;
+
+      padding: 6px 0;
+
+      border-bottom: 1px solid #eee;
+
+      font-size: 14px;
+
+    }
+
+    .pred-item:last-child {
+
+      border-bottom: none;
+
+    }
+
+    .tag-name {
+
+      font-weight: 600;
+
+      color: #0056b3;
+
+      text-transform: capitalize;
+
+    }
+
+    .probability-badge {
+
+      background: #e8f4fd;
+
+      color: #0056b3;
+
+      padding: 2px 8px;
+
+      border-radius: 12px;
+
+      font-weight: bold;
+
+      font-size: 12px;
+
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+
+
+<div class="container">
+
+  <h1>Clasificador Inteligente 🐾</h1>
+
+  <p>Sube una foto para probar el modelo de Azure AI</p>
+
+   
+
+  <input type="file" id="fileInput" accept="image/*"><br><br>
+
+  <button onclick="analizarImagen()">Clasificar Imagen</button>
+
+   
+
+  <div id="status"></div>
+
+
+
+  <div id="imageContainer">
+
+    <img id="preview" alt="Vista previa">
+
+  </div>
+
+
+
+  <div id="resultsCard" class="results-card">
+
+    <h3>Predicciones del Modelo:</h3>
+
+    <div id="predictionsList"></div>
+
+  </div>
+
+</div>
+
+
+
+<script>
+
+  // URL y Key extraídas directamente de tu portal de Azure
+
+  const AZURE_PREDICTION_URL = "https://customvisionbrayan-prediction.cognitiveservices.azure.com/customvision/v3.0/Prediction/af79d6d1-4aaf-4da2-abc4-4f0c9bf34b11/classify/iterations/ModeloAnimales/image    ";
+
+  const AZURE_PREDICTION_KEY = "El8rm4sYENFzFteSkLKNHfCr79uRSI5o2sq8kyN71VrH5PJ1Fti6JQQJ99CKAC8vTInXJ3w3AAAIACOGgO23";
+
+
+
+  const fileInput = document.getElementById('fileInput');
+
+  const preview = document.getElementById('preview');
+
+  const statusDiv = document.getElementById('status');
+
+  const resultsCard = document.getElementById('resultsCard');
+
+  const predictionsList = document.getElementById('predictionsList');
+
+
+
+  fileInput.addEventListener('change', function() {
+
+    const file = this.files[0];
+
+    if (file) {
+
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+
+        preview.src = e.target.result;
+
+        preview.style.display = 'block';
+
+        resultsCard.style.display = 'none';
+
+        predictionsList.innerHTML = '';
+
+        statusDiv.innerText = '';
+
+      }
+
+      reader.readAsDataURL(file);
+
+    }
+
+  });
+
+
+
+  async function analizarImagen() {
+
+    const file = fileInput.files[0];
+
+    if (!file) {
+
+      alert("Por favor, selecciona una imagen primero.");
+
+      return;
+
+    }
+
+
+
+    statusDiv.innerText = "Consultando Custom Vision...";
+
+    resultsCard.style.display = 'none';
+
+    predictionsList.innerHTML = '';
+
+
+
+    try {
+
+      const response = await fetch(AZURE_PREDICTION_URL, {
+
+        method: "POST",
+
+        headers: {
+
+          "Prediction-Key": AZURE_PREDICTION_KEY,
+
+          "Content-Type": "application/octet-stream"
+
+        },
+
+        body: file
+
+      });
+
+
+
+      if (!response.ok) {
+
+        const errDetail = await response.text();
+
+        throw new Error(`Azure respondió ${response.status}: ${errDetail}`);
+
+      }
+
+
+
+      const data = await response.json();
+
+      statusDiv.innerText = "¡Clasificación exitosa!";
+
+      mostrarResultados(data.predictions);
+
+
+
+    } catch (error) {
+
+      console.error(error);
+
+      statusDiv.innerText = "Error: " + error.message;
+
+    }
+
+  }
+
+
+
+  function mostrarResultados(predictions) {
+
+    if (!predictions || predictions.length === 0) {
+
+      statusDiv.innerText = "No se recibieron predicciones del modelo.";
+
+      return;
+
+    }
+
+
+
+    predictionsList.innerHTML = '';
+
+     
+
+    // Filtra resultados con más de 10% de probabilidad y los ordena de mayor a menor
+
+    const relevantes = predictions
+
+      .filter(p => p.probability >= 0.10)
+
+      .sort((a, b) => b.probability - a.probability);
+
+
+
+    if (relevantes.length === 0) {
+
+      predictionsList.innerHTML = "<p>No se superó el umbral mínimo de confianza.</p>";
+
+    } else {
+
+      relevantes.forEach(pred => {
+
+        const item = document.createElement('div');
+
+        item.className = 'pred-item';
+
+
+
+        const porcentaje = (pred.probability * 100).toFixed(1);
+
+
+
+        item.innerHTML = `
+
+          <span class="tag-name">${pred.tagName}</span>
+
+          <span class="probability-badge">${porcentaje}%</span>
+
+        `;
+
+        predictionsList.appendChild(item);
+
+      });
+
+    }
+
+
+
+    resultsCard.style.display = 'block';
+
+  }
+
+</script>
+
+
+
+</body>
+
+</html>
